@@ -39,8 +39,8 @@ const App = (() => {
   }
 
   /* ─── Initialise Firebase ────────────────────────────── */
-  function init() {
-    FirebaseService.init();
+  async function init() {
+    await FirebaseService.init();
     bindEvents();
     handleDeepLink();
   }
@@ -57,7 +57,7 @@ const App = (() => {
 
   async function createGame() {
     const name       = document.getElementById('game-name').value.trim() || 'Blackjack Table';
-    const balance    = parseInt(document.getElementById('starting-balance').value) || APP_CONFIG.DEFAULT_BALANCE;
+    const balance    = parseInt(document.getElementById('starting-balance').value) || 1000;
     const pin        = document.getElementById('game-pin').value.trim();
 
     UI.showLoading('Creating table...');
@@ -125,7 +125,7 @@ const App = (() => {
     if (waitingList) {
       waitingList.innerHTML = Object.values(state.players)
         .map(p => UI.buildWaitingChip(p)).join('');
-      countBadge.textContent = `${count}/${APP_CONFIG.MAX_PLAYERS}`;
+      countBadge.textContent = `${count}/4`;
       if (startBtn) startBtn.disabled = count === 0;
       if (hint) hint.style.display = count > 0 ? 'none' : 'block';
     }
@@ -323,7 +323,7 @@ const App = (() => {
       }
     } catch(e) {
       // Maybe it's just a raw session code
-      if (text.length === APP_CONFIG.SESSION_CODE_LENGTH) {
+      if (text.length === 6) {
         state.joinedSessionId = text.toUpperCase();
         findGame(state.joinedSessionId);
       } else {
@@ -336,8 +336,8 @@ const App = (() => {
     if (!sessionId) {
       sessionId = document.getElementById('join-session-code').value.trim().toUpperCase();
     }
-    if (sessionId.length !== APP_CONFIG.SESSION_CODE_LENGTH) {
-      UI.showToast(`Enter a ${APP_CONFIG.SESSION_CODE_LENGTH}-letter code`, 'error');
+    if (sessionId.length !== 6) {
+      UI.showToast(`Enter a 6-letter code`, 'error');
       return;
     }
     UI.showLoading('Finding table...');
@@ -500,7 +500,7 @@ const App = (() => {
     const bet    = parseInt(slider.value);
     const me     = state.players[state.playerId];
     if (!me) return;
-    const clamped = GameLogic.clampBet(bet, APP_CONFIG.MIN_BET, me.balance);
+    const clamped = GameLogic.clampBet(bet, 10, me.balance);
 
     UI.showLoading('Placing bet...');
     try {
@@ -696,7 +696,7 @@ const App = (() => {
         const me = state.players[state.playerId];
         if (!me) return;
         const pct    = parseFloat(btn.dataset.pct);
-        const amount = GameLogic.clampBet(me.balance * pct, APP_CONFIG.MIN_BET, me.balance);
+        const amount = GameLogic.clampBet(me.balance * pct, 10, me.balance);
         const slider = document.getElementById('pv-bet-slider');
         slider.value = amount;
         updateBetDisplay(amount);
