@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0a1f0a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="BlackJack" />
+  <meta name="description" content="Virtual Blackjack Scorer – host home games with real-time scoring" />
+  <title>♠ BlackJack Score</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+
+<!-- HOME -->
+<div id="screen-home" class="screen active">
+  <div class="felt-texture"></div>
+  <div class="home-inner">
+    <div class="logo-wrap">
+      <div class="suits-row">♠ ♥ ♦ ♣</div>
+      <h1 class="logo-title">BlackJack</h1>
+      <div class="logo-sub">SCORE KEEPER</div>
+    </div>
+    <div class="home-buttons">
+      <button class="btn btn-primary btn-xl" id="btn-host">
+        <span class="btn-icon">♛</span>
+        <span class="btn-text"><strong>Host Game</strong><small>Start a new table</small></span>
+      </button>
+      <button class="btn btn-secondary btn-xl" id="btn-join">
+        <span class="btn-icon">♟</span>
+        <span class="btn-text"><strong>Join Game</strong><small>Scan host's QR code</small></span>
+      </button>
+    </div>
+    <div class="home-footer">Virtual scoring only · No real money</div>
+  </div>
+</div>
+
+<!-- HOST SETUP -->
+<div id="screen-host-setup" class="screen">
+  <div class="felt-texture"></div>
+  <div class="screen-inner">
+    <div class="screen-header">
+      <button class="btn-back" id="back-from-host-setup">←</button>
+      <h2>New Table</h2>
+    </div>
+    <div class="form-card">
+      <div class="form-group">
+        <label>Table Name</label>
+        <input type="text" id="game-name" placeholder="Friday Night BJ" maxlength="30" />
+      </div>
+      <div class="form-group">
+        <label>Starting Balance (each player)</label>
+        <div class="chip-selector">
+          <button class="chip-opt" data-val="500">$500</button>
+          <button class="chip-opt active" data-val="1000">$1,000</button>
+          <button class="chip-opt" data-val="2000">$2,000</button>
+          <button class="chip-opt" data-val="5000">$5,000</button>
+        </div>
+        <input type="number" id="starting-balance" value="1000" min="100" max="99999" class="mt-sm" />
+      </div>
+      <div class="form-group">
+        <label>PIN <span class="label-optional">(optional)</span></label>
+        <input type="text" id="game-pin" placeholder="4 digits" maxlength="4" pattern="[0-9]*" inputmode="numeric" />
+      </div>
+    </div>
+    <button class="btn btn-primary btn-full mt-lg" id="btn-create-game">Create Table & Get QR Code →</button>
+  </div>
+</div>
+
+<!-- HOST QR SCREEN -->
+<div id="screen-host-qr" class="screen">
+  <div class="felt-texture"></div>
+  <div class="screen-inner">
+    <div class="screen-header">
+      <div class="game-title-badge" id="qr-game-name-display">Table</div>
+      <button class="btn-sm btn-outline" id="btn-start-game-from-qr" disabled>Start Game</button>
+    </div>
+    <div class="qr-section">
+      <div class="qr-label">Players scan to join</div>
+      <div class="qr-frame"><div id="qr-code-display"></div></div>
+      <div class="qr-meta">
+        <span id="qr-session-id-display" class="session-code"></span>
+        <span id="qr-pin-display" class="pin-badge" style="display:none"></span>
+      </div>
+      <div class="qr-url-hint">Or share: <span id="qr-share-url" class="url-text"></span></div>
+    </div>
+    <div class="players-waiting">
+      <div class="section-label">Players Joined <span id="player-count-badge" class="count-badge">0/4</span></div>
+      <div id="waiting-players-list" class="players-grid"></div>
+      <div class="waiting-hint" id="waiting-hint">Waiting for players to scan...</div>
+    </div>
+  </div>
+</div>
+
+<!-- JOIN SCREEN -->
+<div id="screen-join" class="screen">
+  <div class="felt-texture"></div>
+  <div class="screen-inner">
+    <div class="screen-header">
+      <button class="btn-back" id="back-from-join">←</button>
+      <h2>Join Table</h2>
+    </div>
+    <div class="join-tabs">
+      <button class="join-tab active" data-tab="scan">📷 Scan QR</button>
+      <button class="join-tab" data-tab="code">🔢 Enter Code</button>
+    </div>
+    <div id="join-tab-scan" class="join-tab-panel active">
+      <div id="qr-reader-container">
+        <div id="qr-reader"></div>
+        <div class="qr-scan-hint">Point camera at host's QR code</div>
+      </div>
+    </div>
+    <div id="join-tab-code" class="join-tab-panel">
+      <div class="form-card">
+        <div class="form-group">
+          <label>Session Code</label>
+          <input type="text" id="join-session-code" placeholder="6-letter code" maxlength="6"
+            style="text-transform:uppercase;letter-spacing:4px;font-size:1.4rem;text-align:center" />
+        </div>
+      </div>
+      <button class="btn btn-secondary btn-full mt-md" id="btn-find-game">Find Game →</button>
+    </div>
+    <div id="join-pin-section" style="display:none" class="form-card mt-md">
+      <div class="form-group">
+        <label>🔒 Table PIN</label>
+        <input type="text" id="join-pin-input" placeholder="4-digit PIN" maxlength="4"
+          pattern="[0-9]*" inputmode="numeric"
+          style="letter-spacing:6px;font-size:1.4rem;text-align:center" />
+      </div>
+    </div>
+    <div id="join-name-section" style="display:none" class="join-name-card">
+      <div class="game-found-banner" id="game-found-banner">Table found!</div>
+      <div class="form-card">
+        <div class="form-group">
+          <label>Your Nickname</label>
+          <input type="text" id="join-nickname" placeholder="e.g. Lucky Steve" maxlength="15" />
+        </div>
+      </div>
+      <button class="btn btn-primary btn-full mt-md" id="btn-confirm-join">Join Table ♠</button>
+    </div>
+  </div>
+</div>
+
+<!-- BANKER DASHBOARD -->
+<div id="screen-banker-dashboard" class="screen">
+  <div class="felt-texture"></div>
+  <div class="screen-inner no-pad-top">
+    <div class="dashboard-header">
+      <div class="dashboard-header-left">
+        <div class="round-indicator">Round <span id="dash-round-num">1</span></div>
+        <div class="game-name-small" id="dash-game-name">Table</div>
+      </div>
+      <div class="dashboard-header-right">
+        <div class="banker-balance-display">
+          <div class="balance-label">House</div>
+          <div class="balance-amount" id="dash-banker-balance">$1,000</div>
+        </div>
+      </div>
+    </div>
+    <div id="dash-players-list" class="dash-players-list"></div>
+    <div id="phase-betting" class="phase-panel active">
+      <div class="phase-title">🎲 Betting Phase</div>
+      <div class="phase-hint">Players are setting their bets. Wait until all are ready.</div>
+      <div id="bets-status-list" class="bets-status-list"></div>
+      <button class="btn btn-warning btn-full mt-lg" id="btn-go-resolve">Resolve Round →</button>
+    </div>
+    <div id="phase-resolve" class="phase-panel">
+      <div class="phase-title">⚖️ Resolve Round <span id="resolve-round-num">1</span></div>
+      <div id="resolve-players-list" class="resolve-list"></div>
+      <button class="btn btn-primary btn-full mt-lg" id="btn-confirm-resolve">Confirm & Next Round ✓</button>
+    </div>
+    <div id="phase-summary" class="phase-panel">
+      <div class="phase-title">📊 Round <span id="summary-round-num">1</span> Results</div>
+      <div id="summary-results-list" class="summary-list"></div>
+      <button class="btn btn-primary btn-full mt-lg" id="btn-next-round">Next Round →</button>
+      <button class="btn btn-danger btn-full mt-sm" id="btn-end-game">End Game</button>
+    </div>
+    <div class="banker-bottom-bar">
+      <button class="bbar-btn active" id="bbar-dashboard"><span>⬡</span><small>Table</small></button>
+      <button class="bbar-btn" id="bbar-history"><span>📋</span><small>History</small></button>
+      <button class="bbar-btn" id="bbar-show-qr"><span>⊟</span><small>QR</small></button>
+    </div>
+  </div>
+</div>
+
+<!-- PLAYER VIEW -->
+<div id="screen-player-view" class="screen">
+  <div class="felt-texture"></div>
+  <div class="screen-inner no-pad-top">
+    <div class="player-header">
+      <div class="player-header-left">
+        <div class="player-name-display" id="pv-player-name">Player</div>
+        <div class="round-indicator">Round <span id="pv-round-num">1</span></div>
+      </div>
+      <div class="player-header-right">
+        <div class="player-balance-big" id="pv-balance">$1,000</div>
+        <div class="balance-delta" id="pv-balance-delta"></div>
+      </div>
+    </div>
+    <div id="pv-phase-bet" class="pv-phase active">
+      <div class="phase-title">Place Your Bet</div>
+      <div class="bet-amount-display">
+        <span class="currency">$</span><span id="pv-bet-display">100</span>
+      </div>
+      <div class="bet-slider-wrap">
+        <input type="range" id="pv-bet-slider" min="10" max="1000" step="10" value="100" class="bet-slider" />
+        <div class="bet-slider-labels"><span>$10</span><span id="bet-slider-max-label">$1,000</span></div>
+      </div>
+      <div class="quick-bet-grid">
+        <button class="qbet-btn" data-pct="0.1">10%</button>
+        <button class="qbet-btn" data-pct="0.25">25%</button>
+        <button class="qbet-btn" data-pct="0.5">50%</button>
+        <button class="qbet-btn" data-pct="1">All In</button>
+      </div>
+      <button class="btn btn-primary btn-full mt-lg" id="btn-place-bet">Bet Placed – I'm Ready ✓</button>
+      <div class="bet-locked-msg" id="bet-locked-msg" style="display:none">
+        <div class="locked-icon">🔒</div>
+        <div>Bet locked: <strong id="bet-locked-amount">$100</strong></div>
+        <small>Waiting for other players...</small>
+      </div>
+    </div>
+    <div id="pv-phase-waiting" class="pv-phase">
+      <div class="waiting-anim">
+        <div class="card-flip-anim">🃏</div>
+        <div class="waiting-text">Waiting for results...</div>
+        <div class="waiting-sub">Banker is resolving the round</div>
+      </div>
+    </div>
+    <div id="pv-phase-result" class="pv-phase">
+      <div class="result-card" id="pv-result-card">
+        <div class="result-outcome" id="pv-result-outcome">WIN</div>
+        <div class="result-amount" id="pv-result-amount">+$150</div>
+        <div class="result-new-balance">New Balance: <strong id="pv-result-new-balance">$1,150</strong></div>
+      </div>
+      <div class="all-balances-mini" id="pv-all-balances"></div>
+    </div>
+    <div class="banker-bottom-bar">
+      <button class="bbar-btn active" id="pv-bbar-game"><span>♠</span><small>Game</small></button>
+      <button class="bbar-btn" id="pv-bbar-history"><span>📋</span><small>History</small></button>
+    </div>
+  </div>
+</div>
+
+<!-- HISTORY OVERLAY -->
+<div id="overlay-history" class="overlay" style="display:none">
+  <div class="overlay-header">
+    <h3>Round History</h3>
+    <button class="overlay-close" id="close-history">✕</button>
+  </div>
+  <div id="history-list" class="history-list"></div>
+</div>
+
+<!-- FINAL SCREEN -->
+<div id="screen-final" class="screen">
+  <div class="felt-texture"></div>
+  <div class="screen-inner">
+    <div class="final-header">
+      <div class="suits-row">♠ ♥ ♦ ♣</div>
+      <h2 class="final-title">Game Over</h2>
+      <div class="game-name-badge" id="final-game-name"></div>
+    </div>
+    <div class="final-stats-row">
+      <div class="stat-box"><div class="stat-num" id="final-rounds">0</div><div class="stat-label">Rounds</div></div>
+      <div class="stat-box highlight">
+        <div class="stat-icon">🏆</div>
+        <div class="stat-num" id="final-winner-name">—</div>
+        <div class="stat-label">Biggest Winner</div>
+      </div>
+      <div class="stat-box"><div class="stat-num" id="final-biggest-win">$0</div><div class="stat-label">Top Balance</div></div>
+    </div>
+    <div class="final-leaderboard" id="final-leaderboard"></div>
+    <div class="final-actions">
+      <button class="btn btn-secondary btn-full" id="btn-share-results">Share Results 📤</button>
+      <button class="btn btn-outline btn-full" id="btn-export-csv">Export CSV 📊</button>
+      <button class="btn btn-primary btn-full" id="btn-new-game-from-final">New Game ♠</button>
+    </div>
+  </div>
+</div>
+
+<!-- QR OVERLAY -->
+<div id="overlay-qr" class="overlay" style="display:none">
+  <div class="overlay-header">
+    <h3>Table QR Code</h3>
+    <button class="overlay-close" id="close-qr-overlay">✕</button>
+  </div>
+  <div class="qr-frame mini"><div id="overlay-qr-code"></div></div>
+  <div class="overlay-session-code" id="overlay-session-code"></div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="toast" aria-live="polite"></div>
+
+<!-- LOADING -->
+<div id="loading-overlay" class="loading-overlay" style="display:none">
+  <div class="spinner"></div>
+  <div id="loading-text" class="loading-text">Connecting...</div>
+</div>
+
+<script src="/js/game-logic.js"></script>
+<script src="/js/ui.js"></script>
+<script src="/js/firebase-service.js"></script>
+<script src="/js/app.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+.env
+.env.local
+.env.*.local
+.vercel/
+.firebase/
+firebase-debug.log
+.DS_Store
+node_modules/
