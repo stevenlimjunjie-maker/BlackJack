@@ -130,9 +130,26 @@ const App = (() => {
       if (hint) hint.style.display = count > 0 ? 'none' : 'block';
     }
 
-    // Update dashboard (game running)
+    // Update banker dashboard
     if (state.role === 'banker' && document.getElementById('screen-banker-dashboard').classList.contains('active')) {
       renderBankerDashboard();
+    }
+
+    // Update player result screen when player data arrives with outcome
+    // (players listener can fire before or after game phase listener)
+    if (state.role === 'player' && state.game) {
+      const me = state.players[state.playerId];
+      if (me) {
+        // Always update header balance
+        document.getElementById('pv-balance').textContent = UI.formatMoney(me.balance);
+        // If we're in summary phase and have an outcome, show it
+        if (state.game.phase === 'summary' && me.outcome) {
+          document.querySelectorAll('.pv-phase').forEach(el => el.classList.remove('active'));
+          showPlayerResult(me);
+          document.getElementById('pv-phase-result').classList.add('active');
+          renderAllBalancesMini();
+        }
+      }
     }
   }
 
@@ -432,6 +449,8 @@ const App = (() => {
       document.getElementById('btn-place-bet').disabled = true;
 
     } else if (game.phase === 'betting') {
+      // Save balance at START of betting phase — this is the clean pre-round balance
+      if (me) state.prevBals[state.playerId] = me.balance;
       document.getElementById('btn-place-bet').textContent = 'Bet Placed – I\'m Ready ✓';
       document.getElementById('btn-place-bet').disabled = false;
       // Check if this player already submitted bet
@@ -452,8 +471,6 @@ const App = (() => {
       document.getElementById('pv-phase-bet').classList.add('active');
 
     } else if (game.phase === 'resolving') {
-      // Save current balance BEFORE result comes in so delta is correct
-      if (me) state.prevBals[state.playerId] = me.balance;
       document.getElementById('pv-phase-waiting').classList.add('active');
 
     } else if (game.phase === 'summary') {
